@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+
+<link
+	href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+	rel="stylesheet"
+	integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T"
+	crossorigin="anonymous">
+<script src="https://cdn.jsdelivr.net/npm/vue@2.6.10/dist/vue.js"></script>
+<script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+<style>
+.res-t {
+	letter-spacing: 5px;
+}
+
+.hint {
+	text-align: left;
+}
+</style>
+<div id="app">
+	<div class="container-fluid">
+		<div class="card text-center">
+			<div class="card-header">Word Guessing Game</div>
+			<div class="card-body">
+				<div v-if="!game.isActive && !game.isStarted" class="card mt-5">
+					<button @click="initiateGame()" type="button"
+						class="btn btn-primary btn-lg">Start Game</button>
+				</div>
+				<form v-if="game.isActive && !game.isStarted" class="form-inline">
+					<div class="form-group mx-sm-3 mb-2">
+						<label for="word" class="sr-only">Choose a word</label> <input
+							type="text" class="form-control" id="word"
+							v-model="game.playerWord" placeholder="type word...">
+					</div>
+					<button type="submit" :disabled="this.game.starting"
+						class="btn btn-primary mb-2" @click="createGame">Puzzle
+						me</button>
+					<div v-if="!!errorMsg" class="alert alert-danger ml-5" role="alert">{{ errorMsg }}</div>
+				</form>
+				<div class="row" v-if="game.isStarted">
+					<div class="col-sm-12">
+						<div class="row">
+							<div class="col-6">
+								<div class="card text-center">
+									<div class="card-header">You</div>
+									<div class="card-body">
+										<div v-if="!game.gameData.winner"
+											class="btn-group btn-group-sm" role="group">
+											<characters-list v-for="char in chars" add-class="disabled"
+												:key="char"
+												:type="game.gameData.human.opts.includes(char) ? 'btn-outline-info' : 'btn-outline-secondary disabled'"
+												:char="char"></characters-list>
+										</div>
+									</div>
+									<div class="card-footer text-muted">
+										<h1 class="res-t">{{ game.gameData.winner ? game.gameData.cpu.word : game.gameData.human.guess }}</h1>
+									</div>
+								</div>
+							</div>
+							<div class="col-6">
+								<div class="card text-center">
+									<div class="card-header">CPU</div>
+									<div class="card-body">
+										<div v-if="!game.gameData.winner"
+											class="btn-group btn-group-sm" role="group">
+											<characters-list-dis v-for="char in chars"
+												add-class="disabled" :key="char"
+												:type="game.gameData.cpu.opts.includes(char) ? 'btn-outline-info' : 'btn-outline-secondary'"
+												:char="char"></characters-list-dis>
+										</div>
+									</div>
+									<div class="card-footer text-muted">
+										<h1 class="res-t">{{ game.gameData.winner ? game.gameData.human.word : game.gameData.cpu.guess }}</h1>
+									</div>
+								</div>
+							</div>
+						</div>
+						<div class="row mt-5">
+							<div class="col-sm-12 hint" v-if="!game.gameData.winner">
+								<button @click="hint" v-if="!showhint" type="button"
+									class="btn btn-secondary btn-lg">Hint</button>
+								<p v-if="showhint">{{ game.gameData.cpu.hint }}</p>
+							</div>
+							<div class="col-sm-12" v-if="game.gameData.winner">
+								<button @click="initiateGame" type="button"
+									class="btn btn-primary btn-lg">Replay</button>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="card-footer text-muted"
+				v-if="game.gameData.winner && game.isStarted">
+				<div :class="winnerStyle" role="alert">
+					The winner is <strong>{{ game.gameData.winner }}</strong>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<script>
+	var abc = [ "a" ]
+	Vue.component(
+					'characters-list-dis',
+					{
+						props : [ "char", "type", "add-class" ],
+						template : '<button type="button" :class="type" class="btn" disabled>{{ char }}</button>'
+					});
+	Vue.component(
+		'characters-list',
+		{
+			props : [ "char", "type", "add-class" ],
+			methods: {
+				makeMove: function(){
+					axios.get("/api/" + vm.game.gameData.id + "/" + this.char).then(
+							function(response) {
+								vm.game.gameData = response.data;
+							});
+				}
+			},
+			template : '<button @click="makeMove" type="button" :class="type" class="btn" >{{ char }}</button>'
+		});
+	var vm = new Vue({
+		el : '#app',
+		data : {
+			chars : [ "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k",
+					"l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w",
+					"x", "y", "z" ],
+			game : {
+				isActive : false,
+				isStarted : false,
+				playerWord : "",
+				gameData : {},
+				starting: false
+			},
+			showhint: false,
+			errorMsg: ""
+		},
+		computed: {
+			winnerStyle: function(){
+				return this.game.gameData.winner == 'Human' ? 'alert alert-success' : 'alert alert-danger';
+			},
+			winnerTitle: function(){
+				return this.game.gameData.winner == 'Human' ? 'you' : this.game.gameData.winner;
+			}
+		},
+		methods : {
+			initiateGame : function() {
+				this.game.isActive = true;
+				this.showhint = false;
+				this.game.isStarted = false;
+				this.game.playerWord = '';
+				this.game.starting = false;
+			},
+			hint: function(){
+				this.showhint = true;
+			},
+			createGame : function(event) {
+				event.preventDefault();
+				this.errorMsg = "";
+				this.game.starting = true;
+				axios.get("/api/" + this.game.playerWord).then(
+						function(response) {
+							vm.game.isStarted = true;
+							vm.game.gameData = response.data;
+							vm.showhint = false;
+						})
+						.catch(function(response){
+							vm.errorMsg = response.response.data.message;
+						})
+						.finally(
+								function(){
+									vm.game.starting = false;
+									});
+			}
+		}
+	});
+</script>
